@@ -47,9 +47,9 @@ spec:
         env:
         # EC2 Private IP and Mongo credentials
         - name: MONGODB_URI
-          value: "mongodb://taskyuser:taskypassword@10.0.11.0:27017/tasky"
+          value: "PLACEHOLDER_MONGO_URI"
         - name: SECRET_KEY
-          value: "supersecretkey"
+          value: "PLACEHOLDER_SECRET_KEY"
 ---
 # 4. The Internal Service
 apiVersion: v1
