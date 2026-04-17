@@ -41,7 +41,7 @@ spec:
       serviceAccountName: wiz-vulnerable-sa # Attaches the admin privilege
       containers:
       - name: wiz-todo-app
-        image: 571600855761.dkr.ecr.us-west-2.amazonaws.com/wiz-todo-app:latest
+        image: PLACEHOLDER_IMAGE_URI 
         ports:
         - containerPort: 8080
         env:
