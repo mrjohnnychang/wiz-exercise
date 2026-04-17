@@ -1,0 +1,87 @@
+---
+# 1. The Vulnerable Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wiz-vulnerable-sa
+  namespace: default
+
+---
+# 2. The Cluster-Wide Admin Privilege (Exercise Requirement)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: wiz-cluster-admin-binding
+subjects:
+- kind: ServiceAccount
+  name: wiz-vulnerable-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# 3. The Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wiz-todo-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wiz-todo-app
+  template:
+    metadata:
+      labels:
+        app: wiz-todo-app
+    spec:
+      serviceAccountName: wiz-vulnerable-sa # Attaches the admin privilege
+      containers:
+      - name: wiz-todo-app
+        image: 571600855761.dkr.ecr.us-west-2.amazonaws.com/wiz-todo-app:latest
+        ports:
+        - containerPort: 8080
+        env:
+        # EC2 Private IP and Mongo credentials
+        - name: MONGODB_URI
+          value: "mongodb://taskyuser:taskypassword@10.0.11.0:27017/tasky"
+        - name: SECRET_KEY
+          value: "supersecretkey"
+---
+# 4. The Internal Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: wiz-todo-service
+  namespace: default
+spec:
+  selector:
+    app: wiz-todo-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+
+---
+# 5. The Ingress Routing (Connects to your NGINX Load Balancer)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wiz-todo-ingress
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: wiz-todo-service
+            port:
+              number: 80
