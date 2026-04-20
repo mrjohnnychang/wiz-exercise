@@ -33,6 +33,7 @@ module "eks" {
   cluster_version = "1.35"
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnets
+  cluster_endpoint_public_access = true
   eks_managed_node_groups = {
     wiz_nodes = {
       ami_type       = "AL2023_x86_64_STANDARD"  # Explicitly use AL2023 for 1.35+
