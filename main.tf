@@ -148,6 +148,24 @@ resource "aws_iam_instance_profile" "vulnerable_profile" {
   role = aws_iam_role.vulnerable_role.name
 }
 
+# Grants the VM full control over EC2 (Required: able to create VMs)
+resource "aws_iam_role_policy_attachment" "db_ec2_full" {
+  role       = aws_iam_role.vulnerable_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+}
+
+# Grants the VM full control over all S3 buckets
+resource "aws_iam_role_policy_attachment" "db_s3_full" {
+  role       = aws_iam_role.vulnerable_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+# Optional: Add SSM access so you can actually log in to test these permissions
+resource "aws_iam_role_policy_attachment" "db_ssm_core" {
+  role       = aws_iam_role.vulnerable_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 # 5. Outdated MongoDB EC2 Instance
 data "aws_ami" "ubuntu_18_04" {
   most_recent = true
