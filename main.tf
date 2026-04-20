@@ -62,7 +62,7 @@ module "eks" {
   eks_managed_node_groups = {
     wiz_nodes = {
       ami_type       = "AL2023_x86_64_STANDARD"  # Explicitly use AL2023 for 1.35+
-      instance_types = ["t3.medium"]
+      instance_types = ["t3a.medium"]
       min_size     = 2
       max_size     = 2
       desired_size = 2
@@ -183,7 +183,7 @@ resource "aws_security_group" "mongo_sg" {
 
 resource "aws_instance" "mongodb" {
   ami           = data.aws_ami.ubuntu_18_04.id
-  instance_type = "t3.small"
+  instance_type = "t3a.small"
   subnet_id     = module.vpc.public_subnets[0]
   vpc_security_group_ids = [aws_security_group.mongo_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.vulnerable_profile.name
@@ -216,4 +216,20 @@ resource "aws_instance" "mongodb" {
               # 3. Create the cronjob to run daily at midnight
               (crontab -l 2>/dev/null; echo "0 0 * * * /home/ubuntu/backup.sh") | crontab -
 EOF
+}
+
+# 6. Internal DNS for MongoDB
+resource "aws_route53_zone" "private" {
+  name = "wiz.internal"
+  vpc {
+    vpc_id = module.vpc.vpc_id
+  }
+}
+
+resource "aws_route53_record" "mongodb" {
+  zone_id = aws_route53_zone.private.zone_id
+  name    = "mongodb.wiz.internal"
+  type    = "A"
+  ttl     = "300"
+  records = [aws_instance.mongodb.private_ip]
 }
