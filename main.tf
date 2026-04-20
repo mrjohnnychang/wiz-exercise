@@ -219,7 +219,7 @@ resource "aws_instance" "mongodb" {
               sleep 15 # Wait for the database to fully boot
 
               # 1. Create the MongoDB Database and User
-              mongo tasky --eval "db.createUser({user: 'taskyuser', pwd: 'taskypassword', roles: [{role: 'readWrite', db: 'tasky'}]})"
+              mongo tasky --eval "db.createUser({user: 'taskyuser', pwd: 'taskypassword', roles: [{role: 'readWrite', db: 'tasky'}, { role: "readWrite", db: "go-mongodb" }]})"
 
               # 2. Create the backup script locally on the EC2
               cat << 'SCRIPT' > /home/ubuntu/backup.sh
