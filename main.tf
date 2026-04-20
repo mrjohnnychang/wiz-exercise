@@ -185,4 +185,5 @@ resource "aws_instance" "mongodb" {
 
               # 3. Create the cronjob to run daily at midnight
               (crontab -l 2>/dev/null; echo "0 0 * * * /home/ubuntu/backup.sh") | crontab -
-              EOF
+EOF
+}
