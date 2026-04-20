@@ -30,11 +30,12 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
   cluster_name    = "wiz-cluster"
-  cluster_version = "1.29"
+  cluster_version = "1.35"
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnets
   eks_managed_node_groups = {
     wiz_nodes = {
+      ami_type       = "AL2023_x86_64"  # Explicitly use AL2023 for 1.35+
       instance_types = ["t3.medium"]
       min_size     = 2
       max_size     = 2
