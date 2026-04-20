@@ -1,4 +1,4 @@
-# bucket to save the state file to make iterative updates. Empty the S3 first to recreate AWS resources from scratch
+# Uses a bucket to save the state file to make iterative updates. Empty the S3 to recreate AWS resources from scratch
 terraform {
   backend "s3" {
     bucket = "johnny-terraform-state-12345"
@@ -44,10 +44,10 @@ module "eks" {
 }
 
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = module.eks.cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-    exec {
+    exec = {
       api_version = "client.authentication.k8s.io/v1beta1"
       args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
       command     = "aws"
