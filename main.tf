@@ -35,7 +35,7 @@ module "eks" {
   subnet_ids      = module.vpc.private_subnets
   eks_managed_node_groups = {
     wiz_nodes = {
-      ami_type       = "AL2023_x86_64"  # Explicitly use AL2023 for 1.35+
+      ami_type       = "AL2023_x86_64_STANDARD"  # Explicitly use AL2023 for 1.35+
       instance_types = ["t3.medium"]
       min_size     = 2
       max_size     = 2
