@@ -1,3 +1,12 @@
+# bucket to save the state file to make iterative updates. Empty the S3 first to recreate AWS resources from scratch
+terraform {
+  backend "s3" {
+    bucket = "johnny-terraform-state-12345"
+    key    = "wiz-exercise/terraform.tfstate"
+    region = "us-west-2"
+  }
+}
+
 provider "aws" {
   region = "us-west-2"
 }
@@ -16,7 +25,7 @@ module "vpc" {
   enable_nat_gateway = true
 }
 
-# 2. EKS Cluster
+# 2. EKS Cluster, including LB and ingress controller via helm
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
@@ -34,17 +43,60 @@ module "eks" {
   }
 }
 
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
+      command     = "aws"
+    }
+  }
+}
+
+resource "helm_release" "nginx_ingress" {
+  name             = "nginx-ingress"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  chart            = "ingress-nginx"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+}
+
 # 3. Vulnerable S3 Bucket
 resource "aws_s3_bucket" "vulnerable_bucket" {
   bucket = "wiz-demo-vulnerable-bucket-${data.aws_caller_identity.current.account_id}"
 }
 
+#  Allows attaching a public policy
 resource "aws_s3_bucket_public_access_block" "public_access" {
   bucket = aws_s3_bucket.vulnerable_bucket.id
   block_public_acls       = false
   block_public_policy     = false
   ignore_public_acls      = false
   restrict_public_buckets = false
+}
+
+# Policy that grants public read and list access
+resource "aws_s3_bucket_policy" "public_read_list" {
+  bucket = aws_s3_bucket.vulnerable_bucket.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.vulnerable_bucket.arn,
+          "${aws_s3_bucket.vulnerable_bucket.arn}/*"
+        ]
+      }
+    ]
+  })
 }
 
 # 4. Vulnerable IAM Role for EC2
@@ -89,7 +141,7 @@ resource "aws_security_group" "mongo_sg" {
     from_port   = 27017
     to_port     = 27017
     protocol    = "tcp"
-    cidr_blocks = [module.vpc.vpc_cidr_block]
+    security_groups = [module.eks.node_security_group_id] # Strictly limits to K8s nodes    
   }
   egress {
     from_port   = 0
@@ -111,8 +163,9 @@ resource "aws_instance" "mongodb" {
               apt-get update
               apt-get install -y mongodb awscli
 
-              # Open MongoDB to external connections
+              # Open MongoDB to external connections and enforce auth
               sed -i 's/bind_ip = 127.0.0.1/bind_ip = 0.0.0.0/' /etc/mongodb.conf
+              echo "auth = true" >> /etc/mongodb.conf
               systemctl restart mongodb
               sleep 5 # Wait a few seconds for the database to fully boot
 

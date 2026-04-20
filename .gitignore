@@ -14,7 +14,8 @@
 
 # Dependency directories (remove the comment below to include it)
 vendor/
-
+# old files to be ignored
+backup/
 
 .idea
 setup_test.sh
@@ -22,4 +23,3 @@ Makefile
 deploy
 test
 tmp
-app-deployment.yaml.bak

@@ -35,5 +35,11 @@ jobs:
 
       - name: Deploy to EKS
         run: |
-          aws eks update-kubeconfig --name johnny-test-wiz-cluster --region us-west-2
+          aws eks update-kubeconfig --name wiz-cluster --region us-west-2
+          
+          # Inject secrets and the new GHCR image URI into the deployment file
+          sed -i "s|PLACEHOLDER_MONGO_URI|${{ secrets.MONGO_URI }}|g" app-deployment.yaml
+          sed -i "s|PLACEHOLDER_SECRET_KEY|${{ secrets.SECRET_KEY }}|g" app-deployment.yaml
+          sed -i "s|PLACEHOLDER_IMAGE_URI|ghcr.io/${{ github.repository_owner }}/tasky:latest|g" app-deployment.yaml
+          
           kubectl apply -f app-deployment.yaml

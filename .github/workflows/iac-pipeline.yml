@@ -17,7 +17,7 @@ jobs:
         with:
           directory: .
           framework: terraform
-          soft_fail: true 
+          soft_fail: true # Set to true to allow pipeline to proceed to Terraform Apply for testing          
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
