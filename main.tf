@@ -166,34 +166,6 @@ resource "aws_iam_role_policy_attachment" "db_ssm_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# Create Interface Endpoints so the EC2 can talk to SSM privately
-resource "aws_vpc_endpoint" "ssm" {
-  vpc_id            = module.vpc.vpc_id
-  service_name      = "com.amazonaws.us-west-2.ssm"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [module.vpc.public_subnets[0]] # Matches EC2 subnet
-  security_group_ids = [aws_security_group.mongo_sg.id]
-  private_dns_enabled = true
-}
-
-resource "aws_vpc_endpoint" "ssmmessages" {
-  vpc_id            = module.vpc.vpc_id
-  service_name      = "com.amazonaws.us-west-2.ssmmessages"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [module.vpc.public_subnets[0]]
-  security_group_ids = [aws_security_group.mongo_sg.id]
-  private_dns_enabled = true
-}
-
-resource "aws_vpc_endpoint" "ec2messages" {
-  vpc_id            = module.vpc.vpc_id
-  service_name      = "com.amazonaws.us-west-2.ec2messages"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [module.vpc.public_subnets[0]]
-  security_group_ids = [aws_security_group.mongo_sg.id]
-  private_dns_enabled = true
-}
-
 # 5. Outdated MongoDB EC2 Instance
 data "aws_ami" "ubuntu_18_04" {
   most_recent = true
@@ -244,7 +216,7 @@ resource "aws_instance" "mongodb" {
               sed -i 's/bind_ip = 127.0.0.1/bind_ip = 0.0.0.0/' /etc/mongodb.conf
               echo "auth = true" >> /etc/mongodb.conf
               systemctl restart mongodb
-              sleep 5 # Wait a few seconds for the database to fully boot
+              sleep 15 # Wait for the database to fully boot
 
               # 1. Create the MongoDB Database and User
               mongo tasky --eval "db.createUser({user: 'taskyuser', pwd: 'taskypassword', roles: [{role: 'readWrite', db: 'tasky'}]})"
