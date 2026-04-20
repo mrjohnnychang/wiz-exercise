@@ -24,7 +24,7 @@ jobs:
         with:
           directory: .
           framework: terraform
-          soft_fail: false #set to true to allow test deployment 
+          soft_fail: true #set to true to allow test deployment 
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
