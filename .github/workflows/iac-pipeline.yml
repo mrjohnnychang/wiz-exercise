@@ -7,7 +7,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         run: terraform init
@@ -17,7 +17,7 @@ jobs:
         with:
           directory: .
           framework: terraform
-          soft_fail: true # Set to true so the pipeline continues to the deploy phase
+          soft_fail: true 
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -26,5 +26,5 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
 
-      - name: Terraform Plan (Deployment Simulation)
-        run: terraform plan
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
