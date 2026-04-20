@@ -219,13 +219,15 @@ resource "aws_instance" "mongodb" {
               sleep 15 # Wait for the database to fully boot
 
               # 1. Create the MongoDB Database and User
-              mongo tasky --eval "db.createUser({user: 'taskyuser', pwd: 'taskypassword', roles: [{role: 'readWrite', db: 'tasky'}, { role: "readWrite", db: "go-mongodb" }]})"
+              mongo tasky --eval "db.createUser({user: '${var.mongo_user}', pwd: '${var.mongo_pass}', roles: [{role: 'readWrite', db: 'tasky'}, {role: 'readWrite', db: 'go-mongodb'}]})"
 
               # 2. Create the backup script locally on the EC2
-              cat << 'SCRIPT' > /home/ubuntu/backup.sh
+              cat << SCRIPT > /home/ubuntu/backup.sh
               #!/bin/bash
-              /usr/bin/mongodump --username taskyuser --password taskypassword --authenticationDatabase tasky --out /tmp/mongobackup
-              # Notice how Terraform automatically injects your dynamic bucket name below!
+              # Terraform will now inject the sensitive variables into this file on creation
+              /usr/bin/mongodump --username ${var.mongo_user} --password ${var.mongo_pass} --authenticationDatabase tasky --out /tmp/mongobackup
+
+              # Terraform also injects the dynamic bucket name here
               /usr/bin/aws s3 cp /tmp/mongobackup s3://${aws_s3_bucket.vulnerable_bucket.bucket}/ --recursive
               SCRIPT
 

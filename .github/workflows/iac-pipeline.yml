@@ -26,5 +26,16 @@ jobs:
           framework: terraform
           soft_fail: true #set to true to allow test deployment 
 
+      - name: Terraform Plan
+        env:
+          TF_VAR_mongo_user: ${{ secrets.MONGO_USER }}
+          TF_VAR_mongo_pass: ${{ secrets.MONGO_PASS }}
+        run: terraform plan
+
       - name: Terraform Apply
+        # Only run apply on pushes to main, not on pull requests
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          TF_VAR_mongo_user: ${{ secrets.MONGO_USER }}
+          TF_VAR_mongo_pass: ${{ secrets.MONGO_PASS }}
         run: terraform apply -auto-approve
