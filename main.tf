@@ -109,9 +109,27 @@ resource "aws_instance" "mongodb" {
   user_data = <<-EOF
               #!/bin/bash
               apt-get update
-              apt-get install -y mongodb
+              apt-get install -y mongodb awscli
+
+              # Open MongoDB to external connections
               sed -i 's/bind_ip = 127.0.0.1/bind_ip = 0.0.0.0/' /etc/mongodb.conf
               systemctl restart mongodb
+              sleep 5 # Wait a few seconds for the database to fully boot
+
+              # 1. Create the MongoDB Database and User
+              mongo tasky --eval "db.createUser({user: 'taskyuser', pwd: 'taskypassword', roles: [{role: 'readWrite', db: 'tasky'}]})"
+
+              # 2. Create the backup script locally on the EC2
+              cat << 'SCRIPT' > /home/ubuntu/backup.sh
+              #!/bin/bash
+              /usr/bin/mongodump --username taskyuser --password taskypassword --authenticationDatabase tasky --out /tmp/mongobackup
+              # Notice how Terraform automatically injects your dynamic bucket name below!
+              /usr/bin/aws s3 cp /tmp/mongobackup s3://${aws_s3_bucket.vulnerable_bucket.bucket}/ --recursive
+              SCRIPT
+
+              # Make the script executable
+              chmod +x /home/ubuntu/backup.sh
+
+              # 3. Create the cronjob to run daily at midnight
+              (crontab -l 2>/dev/null; echo "0 0 * * * /home/ubuntu/backup.sh") | crontab -
               EOF
-  tags = { Name = "wiz-mongodb-vulnerable" }
-}
