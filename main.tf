@@ -160,10 +160,19 @@ resource "aws_iam_role_policy_attachment" "db_s3_full" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
-# Optional: Add SSM access so you can actually log in to test these permissions
+# Add SSM access so you can actually log in to test these permissions
 resource "aws_iam_role_policy_attachment" "db_ssm_core" {
   role       = aws_iam_role.vulnerable_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# VPC Endpoint for SSM
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.us-west-2.ssm"
+  vpc_endpoint_type = "Interface"
+  subnet_ids        = module.vpc.private_subnets
+  security_group_ids = [aws_security_group.mongo_sg.id]
 }
 
 # 5. Outdated MongoDB EC2 Instance
