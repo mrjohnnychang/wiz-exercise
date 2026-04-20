@@ -62,6 +62,7 @@ resource "helm_release" "nginx_ingress" {
   chart            = "ingress-nginx"
   namespace        = "ingress-nginx"
   create_namespace = true
+  depends_on       = [module.eks] # Forces Terraform to wait for the cluster to be fully online
 }
 
 # 3. Vulnerable S3 Bucket
@@ -81,6 +82,7 @@ resource "aws_s3_bucket_public_access_block" "public_access" {
 # Policy that grants public read and list access
 resource "aws_s3_bucket_policy" "public_read_list" {
   bucket = aws_s3_bucket.vulnerable_bucket.id
+  depends_on = [aws_s3_bucket_public_access_block.public_access] # Forces Terraform to wait for the block to be lifted
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
