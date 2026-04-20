@@ -175,6 +175,34 @@ resource "aws_vpc_endpoint" "ssm" {
   security_group_ids = [aws_security_group.mongo_sg.id]
 }
 
+# Create Interface Endpoints so the EC2 can talk to SSM privately
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.us-west-2.ssm"
+  vpc_endpoint_type = "Interface"
+  subnet_ids        = [module.vpc.public_subnets[0]] # Matches your EC2 subnet
+  security_group_ids = [aws_security_group.mongo_sg.id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_endpoint" "ssmmessages" {
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.us-west-2.ssmmessages"
+  vpc_endpoint_type = "Interface"
+  subnet_ids        = [module.vpc.public_subnets[0]]
+  security_group_ids = [aws_security_group.mongo_sg.id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_endpoint" "ec2messages" {
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.us-west-2.ec2messages"
+  vpc_endpoint_type = "Interface"
+  subnet_ids        = [module.vpc.public_subnets[0]]
+  security_group_ids = [aws_security_group.mongo_sg.id]
+  private_dns_enabled = true
+}
+
 # 5. Outdated MongoDB EC2 Instance
 data "aws_ami" "ubuntu_18_04" {
   most_recent = true
