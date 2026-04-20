@@ -5,6 +5,12 @@ terraform {
     key    = "wiz-exercise/terraform.tfstate"
     region = "us-west-2"
   }
+  required_providers {
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.12"
+    }
+  }
 }
 
 provider "aws" {
@@ -12,6 +18,13 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+
+locals {
+  # Dynamically strips the temporary STS Session ID so EKS maps the permanent IAM Role
+  arn_parts       = split("/", data.aws_caller_identity.current.arn)
+  is_assumed_role = strcontains(data.aws_caller_identity.current.arn, "assumed-role")
+  base_arn        = local.is_assumed_role ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.arn_parts[1]}" : data.aws_caller_identity.current.arn
+}
 
 # 1. VPC Network
 module "vpc" {
@@ -34,6 +47,18 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnets
   cluster_endpoint_public_access = true
+  #Grant permanent admin access to the base pipeline role
+  access_entries = {
+    pipeline_admin = {
+      principal_arn = local.base_arn
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    }
+  }
   eks_managed_node_groups = {
     wiz_nodes = {
       ami_type       = "AL2023_x86_64_STANDARD"  # Explicitly use AL2023 for 1.35+
@@ -51,7 +76,7 @@ data "aws_eks_cluster_auth" "cluster" {
 }
 
 provider "helm" {
-  kubernetes = {
+  kubernetes {
     host                   = module.eks.cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.cluster.token
