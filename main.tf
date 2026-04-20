@@ -238,7 +238,7 @@ resource "aws_instance" "mongodb" {
   user_data = <<-EOF
               #!/bin/bash
               apt-get update
-              apt-get install -y mongodb awscli
+              apt-get install -y mongodb awscli ec2-instance-connect
 
               # Open MongoDB to external connections and enforce auth
               sed -i 's/bind_ip = 127.0.0.1/bind_ip = 0.0.0.0/' /etc/mongodb.conf
