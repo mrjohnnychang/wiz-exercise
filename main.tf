@@ -95,6 +95,7 @@ resource "helm_release" "nginx_ingress" {
 # 3. Vulnerable S3 Bucket
 resource "aws_s3_bucket" "vulnerable_bucket" {
   bucket = "wiz-demo-vulnerable-bucket-${data.aws_caller_identity.current.account_id}"
+  force_destroy  = true # This allows Terraform to delete the bucket even if it has files
 }
 
 #  Allows attaching a public policy
