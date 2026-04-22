@@ -38,4 +38,4 @@ jobs:
         env:
           TF_VAR_mongo_user: ${{ secrets.MONGO_USER }}
           TF_VAR_mongo_pass: ${{ secrets.MONGO_PASS }}
-        run: terraform destroy -auto-approve
+        run: terraform apply -auto-approve
