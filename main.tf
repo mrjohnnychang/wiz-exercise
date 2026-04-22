@@ -213,16 +213,19 @@ resource "aws_instance" "mongodb" {
               apt-get update
               apt-get install -y mongodb awscli ec2-instance-connect
 
-              # Open MongoDB to external connections and enforce auth
+              # Start MongoDB
+              systemctl start mongodb
+              sleep 10
+              
+              # create mongo db and user
+              mongo tasky --eval "db.createUser({user: '${var.mongo_user}', pwd: '${var.mongo_pass}', roles: [{role: 'readWrite', db: 'tasky'}, {role: 'readWrite', db: 'go-mongodb'}]})"
+
+              # enable remote access and auth
               sed -i 's/bind_ip = 127.0.0.1/bind_ip = 0.0.0.0/' /etc/mongodb.conf
               echo "auth = true" >> /etc/mongodb.conf
               systemctl restart mongodb
-              sleep 15 # Wait for the database to fully boot
 
-              # 1. Create the MongoDB Database and User
-              mongo tasky --eval "db.createUser({user: '${var.mongo_user}', pwd: '${var.mongo_pass}', roles: [{role: 'readWrite', db: 'tasky'}, {role: 'readWrite', db: 'go-mongodb'}]})"
-
-              # 2. Create the backup script locally on the EC2
+              # Create the backup script locally on the EC2
               cat << SCRIPT > /home/ubuntu/backup.sh
               #!/bin/bash
               # Terraform will now inject the sensitive variables into this file on creation
@@ -235,7 +238,7 @@ resource "aws_instance" "mongodb" {
               # Make the script executable
               chmod +x /home/ubuntu/backup.sh
 
-              # 3. Create the cronjob to run daily at midnight
+              # Create the cronjob to run daily at midnight
               (crontab -l 2>/dev/null; echo "0 0 * * * /home/ubuntu/backup.sh") | crontab -
 EOF
 }
