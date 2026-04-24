@@ -47,6 +47,8 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnets
   cluster_endpoint_public_access = true
+  # Enable EKS control plane logging
+  cluster_enabled_log_types = ["api", "audit", "authenticator"]
   #Grant permanent admin access to the base pipeline role
   access_entries = {
     pipeline_admin = {
@@ -92,7 +94,7 @@ resource "helm_release" "nginx_ingress" {
   depends_on       = [module.eks] # Forces Terraform to wait for the cluster to be fully online
 }
 
-# 3. Vulnerable S3 Bucket
+# 3. Vulnerable public S3 bucket and Cloudtrail logs bucket
 resource "aws_s3_bucket" "vulnerable_bucket" {
   bucket = "wiz-demo-vulnerable-bucket-${data.aws_caller_identity.current.account_id}"
   force_destroy  = true # This allows Terraform to delete the bucket even if it has files
@@ -130,9 +132,58 @@ resource "aws_s3_bucket_policy" "public_read_list" {
   })
 }
 
-# 4. Vulnerable IAM Role for EC2
+# S3 bucket for Cloudtrail logs
+resource "aws_s3_bucket" "cloudtrail_logs" {
+  bucket        = "wiz-cloudtrail-logs-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_policy" "cloudtrail_policy" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AWSCloudTrailWrite",
+        Effect = "Allow",
+        Principal = { Service = "cloudtrail.amazonaws.com" },
+        Action = "s3:PutObject",
+        Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*",
+        Condition = { StringEquals = { "s3:x-amz-acl" = "bucket-owner-full-control" } }
+      }
+    ]
+  })
+}
+
+# Enable the Cloudtrail Audit Logging
+resource "aws_cloudtrail" "main_audit" {
+  name                          = "wiz-demo-trail"
+  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
+  include_global_service_events = true
+  is_multi_region_trail         = true
+  enable_logging                = true
+  depends_on                    = [aws_s3_bucket_policy.cloudtrail_policy]
+}
+
+
+# 4. IAM Permissions Boundary and Vulnerable IAM Role for EC2
+# Create the preventative boundary
+resource "aws_iam_policy" "preventative_boundary" {
+  name        = "wiz-preventative-boundary"
+  description = "Prevents destruction of critical infrastructure"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      { Effect = "Allow", Action = "*", Resource = "*" },
+      { Effect = "Deny", Action = ["eks:DeleteCluster", "s3:DeleteBucket"], Resource = "*" }
+    ]
+  })
+}
+
 resource "aws_iam_role" "vulnerable_role" {
   name = "wiz-vulnerable-ec2-role"
+  # This is the permissions boundary which denies deletion of EKS cluster and S3 buckets
+  permissions_boundary = aws_iam_policy.preventative_boundary.arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{ Action = "sts:AssumeRole", Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" } }]
@@ -257,4 +308,22 @@ resource "aws_route53_record" "mongodb" {
   type    = "A"
   ttl     = "300"
   records = [aws_instance.mongodb.private_ip]
+}
+
+# 7. Enable AWS GuardDuty
+resource "aws_guardduty_detector" "main_detector" {
+  enable = true
+}
+
+# 8. Create the ECR mirror repository and AWS Inspector
+resource "aws_ecr_repository" "tasky_mirror" {
+  name                 = "tasky-app-mirror"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true # Allows Terraform to destroy it cleanly
+}
+
+# Enable Amazon Inspector to scan ECR automatically
+resource "aws_inspector2_enabler" "inspector_ecr" {
+  account_ids    = [data.aws_caller_identity.current.account_id]
+  resource_types = ["ECR"]
 }
